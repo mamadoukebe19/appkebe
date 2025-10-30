@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  aws-fluent-landing:
+    build: .
+    ports:
+      - "3000:80"
+    container_name: aws-fluent-landing
+    restart: unless-stopped
