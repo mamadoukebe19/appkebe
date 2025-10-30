@@ -1,0 +1,32 @@
+name: Deploy to EC2 with Ansible
+
+on:
+  push:
+    branches:
+      - main   # Déclenche sur chaque commit dans main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python and Ansible
+        run: |
+          sudo apt update
+          sudo apt install -y python3 python3-pip
+          pip install ansible
+
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Run Ansible playbook
+        run: |
+          ansible-playbook -i ${{ secrets.EC2_HOST }}, deploy_app_docker.yml \
+            -u ${{ secrets.EC2_USER }} --private-key ~/.ssh/id_rsa
