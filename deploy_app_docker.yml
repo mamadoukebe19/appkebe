@@ -1,0 +1,86 @@
+---
+- name: Install Docker, Docker Compose, Git and deploy app
+  hosts: all
+  become: yes
+
+  vars:
+    docker_packages:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - software-properties-common
+      - gnupg-agent
+    docker_repo_key_url: https://download.docker.com/linux/ubuntu/gpg
+    docker_repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    docker_compose_version: "1.29.2"
+    app_repo_url: "https://github.com/mamadoukebe19/appkebe.git"   # ← change ici ton dépôt
+    app_dest: "/opt/coachkebe"                                       # ← chemin où cloner ton app
+
+  tasks:
+    - name: Update APT and install dependencies
+      apt:
+        name: "{{ docker_packages }}"
+        state: present
+        update_cache: yes
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: "{{ docker_repo_key_url }}"
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "{{ docker_repo }}"
+        state: present
+
+    - name: Install Docker Engine
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+        update_cache: yes
+
+    - name: Ensure Docker service is running
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Install Docker Compose
+      get_url:
+        url: "https://github.com/docker/compose/releases/download/{{ docker_compose_version }}/docker-compose-{{ ansible_system | lower }}-{{ ansible_architecture }}"
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+
+    - name: Verify Docker Compose installation
+      command: docker-compose --version
+      register: compose_version
+      changed_when: false
+
+    - name: Install Git
+      apt:
+        name: git
+        state: present
+
+    - name: Clone application repository
+      git:
+        repo: "{{ app_repo_url }}"
+        dest: "{{ app_dest }}"
+        version: main
+        force: yes
+
+    - name: Deploy application using docker-compose
+      command: docker-compose up -d
+      args:
+        chdir: "{{ app_dest }}"
+
+    - name: Show running containers
+      command: docker ps
+      register: docker_ps
+      changed_when: false
+
+    - name: Display running containers
+      debug:
+        msg: "{{ docker_ps.stdout_lines }}"
